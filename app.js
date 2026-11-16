@@ -48,7 +48,7 @@
     S.loaded = true;
     if (!fromCache) {
       S.error = ""; S.stale = false;
-      try { localStorage.setItem(cacheKey(), JSON.stringify(d)); } catch (e) {}
+      lsSet(cacheKey(), JSON.stringify(d));
     }
     if (S.me && !S.staff.some(function (s) { return s.name === S.me; })) { S.me = ""; lsSet(meKey(), ""); }
     render();
@@ -300,8 +300,9 @@
     sheet.textContent = ""; add(sheet, children);
     sheetDirty = false; sheetLocked = !!(opts && opts.locked);
     overlay.hidden = false; sheet.scrollTop = 0;
+    pushExtra();
   }
-  function closeSheet() { overlay.hidden = true; sheet.textContent = ""; sheetDirty = false; sheetLocked = false; }
+  function closeSheet() { overlay.hidden = true; sheet.textContent = ""; sheetDirty = false; sheetLocked = false; if (S.view === "home") dropExtra(); }
   // 入力したら「書きかけ」とみなす
   sheet.addEventListener("input", function () { sheetDirty = true; });
   sheet.addEventListener("click", function (ev) { if (ev.target.closest && ev.target.closest(".choice, .x, .addrow, .stepper button, .quick button")) sheetDirty = true; });
@@ -581,7 +582,8 @@
 
   // ---- 設定（暗証番号の確認） ----
   function openStaff() {
-    if (S.config && S.config.pinSet && !S.pin) { openPin(); return; }
+    // 開くたびに暗証番号を聞く（入れた人が離れたあとに他の人が開けないように）
+    if (S.config && S.config.pinSet) { S.pin = ""; openPin(); return; }
     openSettings();
   }
   function openPin() {
@@ -712,11 +714,23 @@
   function setView(v, fromHistory) {
     if (S.view === v) return;
     S.view = v;
-    if (v === "list") { S.tab = "pending"; S.q = ""; S.kind = ""; S.item = ""; document.getElementById("search").value = ""; if (!fromHistory) { try { history.pushState({ v: "list" }, ""); } catch (e) {} } }
-    else if (!fromHistory && history.state && history.state.v === "list") { history.back(); }
+    if (v === "list") { S.tab = "pending"; S.q = ""; S.kind = ""; S.item = ""; document.getElementById("search").value = ""; pushExtra(); }
+    else if (!fromHistory && overlay.hidden) dropExtra();
     render(); window.scrollTo(0, 0);
   }
-  window.addEventListener("popstate", function () { if (!overlay.hidden) closeSheet(); setView(history.state && history.state.v === "list" ? "list" : "home", true); });
+  // ---- スマホの「戻る」（Android の戻るボタン・iPhone のスワイプ） ----
+  // はじめの画面を土台にして、一覧や入力画面を開いている間だけ履歴を1つ積む。
+  // 入力画面で戻ると、いきなり消さずに「消して閉じますか？」を出す（書きかけでなければそのまま閉じる）。
+  var ignorePop = false;
+  function hasExtra() { return !!(history.state && history.state.app); }
+  function pushExtra() { if (!hasExtra()) { try { history.pushState({ app: 1 }, ""); } catch (e) {} } }
+  function dropExtra() { if (hasExtra()) { ignorePop = true; history.back(); } }
+  try { if (hasExtra()) history.replaceState(null, ""); } catch (e) {}
+  window.addEventListener("popstate", function () {
+    if (ignorePop) { ignorePop = false; if (!overlay.hidden || S.view === "list") pushExtra(); return; }
+    if (!overlay.hidden) { requestClose(); if (!overlay.hidden || S.view === "list") pushExtra(); return; }
+    if (S.view === "list") setView("home", true);
+  });
   document.getElementById("goList").addEventListener("click", function () { setView("list"); });
   document.getElementById("goAdd").addEventListener("click", function () { if (!S.staff.length) openStaff(); else openForm(null); });
   document.getElementById("backBtn").addEventListener("click", function () { setView("home"); });
@@ -735,6 +749,7 @@
   // 前回の一覧を先に見せる（新しい内容が届いたら入れ替える）
   function showCache() {
     var raw = lsGet(cacheKey());
+    if (!DEMO && raw.indexOf("\"例）") >= 0) return; // お試し版の例が紛れ込んでいたら使わない
     if (!raw) return;
     try { var d = JSON.parse(raw); S.stale = true; applyData(d, true); } catch (e) {}
   }
