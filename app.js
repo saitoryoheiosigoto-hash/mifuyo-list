@@ -25,14 +25,16 @@
     });
   }
 
-  var Mock = {};
+  var Mock = window.Mock || {};
+  // お試し版（try.html）は Google に保存せず、この端末の中だけで動く。本番と記録が混ざらないよう保存場所の名前を分ける
+  var DEMO = !API_URL && !IS_GAS;
 
   // ================================================================ state
   var STORES = ["上野", "渋谷", "札幌"];
   var S = { view: "home", store: "", entries: [], staff: [], config: null, tab: "pending", q: "", kind: "", item: "", me: "", loaded: false, error: "", openHist: {}, pin: "" };
-  function lsGet(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
-  function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
-  S.store = lsGet("coinlist.store");
+  function lsGet(k) { if (DEMO) k = "demo." + k; try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+  function lsSet(k, v) { if (DEMO) k = "demo." + k; try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
+  S.store = lsGet("coinlist.store") || (DEMO ? "上野" : "");
   if (STORES.indexOf(S.store) < 0) S.store = "";
   function meKey() { return "coinlist.me." + S.store; }
   function cacheKey() { return "coinlist.cache." + S.store; }
