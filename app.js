@@ -294,14 +294,14 @@
   }
 
   // ================================================================ sheets
-  var overlay = document.getElementById("overlay"), sheet = document.getElementById("sheet"), fab = document.getElementById("fab");
+  var overlay = document.getElementById("overlay"), sheet = document.getElementById("sheet");
   var sheetDirty = false, sheetLocked = false;
   function openSheet(children, opts) {
     sheet.textContent = ""; add(sheet, children);
     sheetDirty = false; sheetLocked = !!(opts && opts.locked);
-    overlay.hidden = false; fab.hidden = true; sheet.scrollTop = 0;
+    overlay.hidden = false; sheet.scrollTop = 0;
   }
-  function closeSheet() { overlay.hidden = true; sheet.textContent = ""; sheetDirty = false; sheetLocked = false; fab.hidden = false; }
+  function closeSheet() { overlay.hidden = true; sheet.textContent = ""; sheetDirty = false; sheetLocked = false; }
   // 入力したら「書きかけ」とみなす
   sheet.addEventListener("input", function () { sheetDirty = true; });
   sheet.addEventListener("click", function (ev) { if (ev.target.closest && ev.target.closest(".choice, .x, .addrow, .stepper button, .quick button")) sheetDirty = true; });
@@ -725,7 +725,6 @@
     b.addEventListener("click", function () { S.tab = b.dataset.tab; render(); window.scrollTo(0, 0); });
   });
   document.getElementById("search").addEventListener("input", function (ev) { S.q = ev.target.value; render(); });
-  document.getElementById("fab").addEventListener("click", function () { if (!S.staff.length) openStaff(); else openForm(null); });
 
   function refresh() {
     if (!S.store) return Promise.resolve();
