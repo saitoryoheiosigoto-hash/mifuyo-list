@@ -16,11 +16,12 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-view="home">
 
 <header class="top">
   <div class="wrap">
     <div class="titlerow">
+      <button class="chip-btn back-btn" id="backBtn" type="button">‹ もどる</button>
       <h1><span class="c">coin</span>・<span class="t">チケット</span>未付与リスト</h1>
       <button class="chip-btn store-btn" id="storeBtn" type="button"><b id="storeName">店舗</b> ▾</button>
       <button class="chip-btn" id="meBtn" type="button">あなた：<b id="meName">未選択</b></button>
@@ -40,13 +41,26 @@
   </div>
 </header>
 
+<section class="home" id="home">
+  <div class="wrap">
+    <button class="bigbtn view" id="goList" type="button">
+      <span class="bt">未付与を見る</span>
+      <span class="bs" id="homeCount">読み込み中…</span>
+    </button>
+    <button class="bigbtn add" id="goAdd" type="button">
+      <span class="bt">＋ 未付与を登録する</span>
+      <span class="bs">付与できなかった coin・チケット・+POINT</span>
+    </button>
+  </div>
+</section>
+
 <main>
   <div class="wrap" id="list">
     <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
   </div>
 </main>
 
-<button class="fab" id="fab" type="button">＋ 未付与を登録</button>
+<button class="fab" id="fab" type="button" hidden>＋ 未付与を登録</button>
 
 <div class="overlay" id="overlay" hidden>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
