@@ -29,7 +29,7 @@
 
   // ================================================================ state
   var STORES = ["上野", "渋谷", "札幌"];
-  var S = { store: "", entries: [], staff: [], config: null, tab: "pending", q: "", kind: "", item: "", me: "", loaded: false, error: "", openHist: {}, pin: "" };
+  var S = { view: "home", store: "", entries: [], staff: [], config: null, tab: "pending", q: "", kind: "", item: "", me: "", loaded: false, error: "", openHist: {}, pin: "" };
   function lsGet(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
   function lsSet(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} }
   S.store = lsGet("coinlist.store");
@@ -133,6 +133,7 @@
     document.querySelectorAll(".tab").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.tab === S.tab ? "true" : "false"); });
     document.getElementById("meName").textContent = S.me || "未選択";
     document.getElementById("storeName").textContent = S.store || "店舗を選ぶ";
+    renderHome(pending);
     document.getElementById("demoNote").hidden = !!(IS_GAS || API_URL);
 
     var list = document.getElementById("list");
@@ -180,7 +181,7 @@
     if (!items.length) {
       var msg = q ? ["見つかりません", "「" + S.q.trim() + "」に当てはまる記録はありません。"]
         : S.kind ? ["当てはまる記録はありません", "絞り込みを「すべて」に戻すと、ほかの記録が表示されます。"]
-        : S.tab === "pending" ? (S.entries.length ? ["未付与はありません", "すべて付与済みです。"] : ["まだ登録がありません", "付与できなかった coin・チケット・+POINT を「＋ 未付与を登録」から登録します。"])
+        : S.tab === "pending" ? (S.entries.length ? ["未付与はありません", "すべて付与済みです。"] : ["まだ登録がありません", "付与できなかった coin・チケット・+POINT は、はじめの画面の「＋ 未付与を登録する」から登録します。"])
         : S.tab === "done" ? ["付与済みはまだありません", "未付与タブで「付与した」を押すと、ここに移ります。付与から3か月たつと自動で消えます。"]
         : ["取消はありません", "書き間違いなどで取り消した記録がここに残ります。"];
       list.appendChild(h("div", { class: "empty" }, h("div", { class: "big", text: msg[0] }), h("div", { text: msg[1] })));
@@ -696,6 +697,28 @@
   document.getElementById("staffBtn").addEventListener("click", openStaff);
 
   // ================================================================ wiring
+  // ---- はじめの画面（未付与を見る／未付与を登録する） ----
+  function renderHome(pending) {
+    document.body.dataset.view = S.view;
+    var hc = document.getElementById("homeCount");
+    if (!S.loaded) { hc.textContent = S.error ? "読み込めませんでした" : "読み込み中…"; return; }
+    if (!pending.length) { hc.textContent = "今は未付与はありません"; return; }
+    var late = pending.filter(function (e) { return ageDays(e.createdAt) >= 7; }).length;
+    hc.textContent = "";
+    add(hc, ["今 ", h("b", { text: String(pending.length) }), " 件", late ? "（7日以上：" + late + " 件）" : ""]);
+  }
+  function setView(v, fromHistory) {
+    if (S.view === v) return;
+    S.view = v;
+    if (v === "list") { S.tab = "pending"; S.q = ""; S.kind = ""; S.item = ""; document.getElementById("search").value = ""; if (!fromHistory) { try { history.pushState({ v: "list" }, ""); } catch (e) {} } }
+    else if (!fromHistory && history.state && history.state.v === "list") { history.back(); }
+    render(); window.scrollTo(0, 0);
+  }
+  window.addEventListener("popstate", function () { if (!overlay.hidden) closeSheet(); setView(history.state && history.state.v === "list" ? "list" : "home", true); });
+  document.getElementById("goList").addEventListener("click", function () { setView("list"); });
+  document.getElementById("goAdd").addEventListener("click", function () { if (!S.staff.length) openStaff(); else openForm(null); });
+  document.getElementById("backBtn").addEventListener("click", function () { setView("home"); });
+
   document.querySelectorAll(".tab").forEach(function (b) {
     b.addEventListener("click", function () { S.tab = b.dataset.tab; render(); window.scrollTo(0, 0); });
   });
