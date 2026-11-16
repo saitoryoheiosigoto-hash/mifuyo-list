@@ -1,0 +1,14 @@
+{
+  "name": "未付与リスト",
+  "short_name": "未付与リスト",
+  "description": "coin・チケット・+POINT の未付与を記録して、付与担当が付与済みにするアプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f3f0",
+  "theme_color": "#f2f3f0",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
