@@ -227,3 +227,10 @@ body[data-view="list"] .home { display: none; }
 .wz-row b { overflow-wrap: anywhere; }
 .wz-edit { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--accent); font-weight: 700; }
 .wz-done { margin: 0; font-size: 16px; font-weight: 700; }
+
+/* coin の合計（未付与で coin を選んだとき） */
+.sumbar { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; background: var(--coin-bg); border: 1px solid var(--coin); border-radius: 12px; padding: 12px 14px; }
+.sumbar .k { font-size: 13px; font-weight: 700; color: var(--coin); flex-basis: 100%; }
+.sumbar b { font-size: 26px; font-weight: 900; color: var(--coin); font-variant-numeric: tabular-nums; }
+.sumbar b small { font-size: 14px; font-weight: 700; }
+.sumbar .n { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
