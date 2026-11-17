@@ -574,7 +574,7 @@
     var cfg = S.config;
     var STEPS = ["登録する人", "付与するもの", "対象者の名前", "Game ID", "未付与の理由", "備考", "確認して登録"];
     var w = { by: "", kind: "", item: "", count: "1", amount: "", target: "", gameId: "", reason: "", note: "" };
-    var reqId = "", step = 0, saved = [];
+    var reqId = "", step = 0, saved = [], resume = false, gidFrom = "";
     function newReq() { reqId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
     newReq();
     var head = h("div", { class: "wz-head" }), body = h("div", { class: "wz-body" });
@@ -582,7 +582,8 @@
     openSheet([head, body, err, foot]);
 
     function go(n) { step = n; err.hidden = true; draw(); sheet.scrollTop = 0; }
-    function next() { go(step + 1); }
+    // 確認画面から「直す」で戻ったときや「別の人も登録」のときは、名前・Game ID 以外は確認画面へ戻る
+    function next() { if (resume && step !== 2) { resume = false; go(6); } else go(step + 1); }
     function fail(m) { err.textContent = m; err.hidden = false; }
     function kindName(k) { return k === "coin" ? "coin" : k === "ticket" ? "チケット" : k === "pt" ? "+POINT" : ""; }
     function what() {
@@ -664,14 +665,15 @@
           w.target = nm.value.trim();
           if (!w.target) return fail("対象者の名前を入れてください");
           var known = knownIds()[w.target];
-          if (known && !w.gameId) w.gameId = known; // 前に登録した人なら Game ID を先に入れておく
+          if (gidFrom && gidFrom !== w.target) { w.gameId = ""; gidFrom = ""; } // 名前を変えたら、前の人の Game ID は消す
+          if (known && !w.gameId) { w.gameId = known; gidFrom = w.target; } // 前に登録した人なら Game ID を先に入れておく
           next();
         };
         onEnter(nm, function () { nextFn(); });
         focusLater(nm);
       } else if (step === 3) {
         var g = h("input", { class: "inp mono", id: "wzGid", type: "text", inputmode: "numeric", autocomplete: "off", placeholder: "Game ID", value: w.gameId ? fmtGid(w.gameId) : "" });
-        g.addEventListener("input", function () { w.gameId = normId(g.value); });
+        g.addEventListener("input", function () { w.gameId = normId(g.value); gidFrom = ""; });
         var known = knownIds()[w.target];
         add(body, [g, h("p", { class: "lead wz-note", text: known ? "前回の Game ID を入れてあります。違うときは書き換えてください。" : "分からないときは、空のまま「次へ」で進めます（「Game ID 不明」として登録）。" })]);
         nextFn = function () { w.gameId = normId(g.value); next(); };
@@ -689,7 +691,7 @@
       } else if (step === 6) {
         function row(label, val, to) {
           return h("div", { class: "wz-row" }, h("span", { class: "k", text: label }), h("b", { text: val }),
-            h("button", { class: "wz-edit", type: "button", onclick: function () { go(to); } }, "直す"));
+            h("button", { class: "wz-edit", type: "button", onclick: function () { resume = true; go(to); } }, "直す"));
         }
         add(body, h("div", { class: "wz-sum" }, [
           row("登録する人", w.by, 0),
@@ -714,7 +716,7 @@
         add(body, [
           h("p", { class: "wz-done", text: saved.join("、") + " さんを未付与として登録しました（" + what() + "）。" }),
           h("div", { class: "wz-col" },
-            h("button", { class: "btn primary", type: "button", onclick: function () { w.target = ""; w.gameId = ""; newReq(); go(2); } }, "同じ内容で別の人も登録する"),
+            h("button", { class: "btn primary", type: "button", onclick: function () { w.target = ""; w.gameId = ""; gidFrom = ""; newReq(); resume = true; go(2); } }, "同じ内容で別の人も登録する"),
             h("button", { class: "btn", type: "button", onclick: closeSheet }, "閉じる"))
         ]);
         return;
