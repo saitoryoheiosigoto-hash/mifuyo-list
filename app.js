@@ -197,13 +197,34 @@
       return;
     }
 
-    var last = null;
-    items.forEach(function (e) {
-      var basis = S.tab === "pending" ? e.createdAt : S.tab === "done" ? e.grantedAt : e.canceledAt;
-      var lbl = (S.tab === "pending" ? "登録 " : S.tab === "done" ? "付与 " : "取消 ") + dayLabel(basis);
-      if (lbl !== last) { list.appendChild(h("div", { class: "meta", style: "margin-top:6px;font-weight:700", text: lbl })); last = lbl; }
-      list.appendChild(card(e));
-    });
+    // 一覧は「Game ID と未付与の中身」だけの小さいタイルを並べる。押すと詳しい内容と操作ボタンが出る
+    items.forEach(function (e) { list.appendChild(tile(e)); });
+  }
+
+  function tileWhat(e) {
+    if (e.kind === "ticket") return [h("span", { class: "tv", text: (e.item || "チケット") }), h("span", { class: "tu", text: " " + fmtNum(e.amount) + "枚" })];
+    return [h("span", { class: "tv", text: fmtNum(e.amount) }), h("span", { class: "tu", text: e.kind === "pt" ? " pt" : " coin" })];
+  }
+  function tile(e) {
+    var days = ageDays(e.createdAt), lvl = ageLevel(days);
+    var cls = "tile k-" + e.kind;
+    if (e.status === "未付与" && lvl) cls += " age-" + lvl;
+    if (e.status === "付与済み") cls += " st-done";
+    if (e.status === "取消") cls += " st-canceled";
+    var idEl = e.gameId ? h("span", { class: "tid", text: fmtGid(e.gameId) })
+      : h("span", { class: "tid none", text: "ID不明　" + (e.target || "") });
+    var sub = e.status === "未付与" ? (days === 0 ? "今日" : days + "日") : e.status === "付与済み" ? "付与 " + fmtDT(e.grantedAt).split(" ")[0] : "取消";
+    return h("button", { class: cls, type: "button", "aria-label": (e.gameId ? "Game ID " + fmtGid(e.gameId) : "ID不明 " + (e.target || "")) + "、詳しく見る",
+      onclick: function () { openDetail(e); } },
+      idEl, h("span", { class: "twhat" }, tileWhat(e)), h("span", { class: "tage", text: sub }));
+  }
+  // タイルを押したとき：今までのカード（名前・理由・履歴・付与した／修正／取消）をそのまま出す
+  function openDetail(e) {
+    openSheet([
+      h("h2", { id: "sheetTitle", text: e.gameId ? "ID " + fmtGid(e.gameId) : "ID不明" }),
+      card(e),
+      h("div", { class: "foot" }, h("span", { class: "spacer" }), h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "閉じる"))
+    ]);
   }
 
   // 種類の絞り込みボタン（1つだけ選択。もう一度押すと解除）
