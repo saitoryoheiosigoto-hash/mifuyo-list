@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261117b">
 </head>
 <body data-view="home">
 
@@ -74,6 +74,6 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbxmLf0ep465r9AcBI7JuVU
 (function () { try { var img = new Image(); img.onload = function () { var c = document.createElement("canvas"); c.width = c.height = 180; c.getContext("2d").drawImage(img, 0, 0, 180, 180); document.getElementById("appleIcon").href = c.toDataURL("image/png"); }; img.src = "icon.svg"; } catch (e) {} })();
 if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); }); }
 </script>
-<script src="app.js"></script>
+<script src="app.js?v=20261117b"></script>
 </body>
 </html>
