@@ -567,6 +567,170 @@
     sync();
   }
 
+  // ---- 未付与を登録（1つずつ順番に入力する） ----
+  // 登録する人 → 付与するもの → 対象者の名前 → Game ID（なしでも可） → 未付与の理由 → 備考 → 確認して登録
+  function openWizard() {
+    if (!S.staff.length) { openStaff(); return; }
+    var cfg = S.config;
+    var STEPS = ["登録する人", "付与するもの", "対象者の名前", "Game ID", "未付与の理由", "備考", "確認して登録"];
+    var w = { by: "", kind: "", item: "", count: "1", amount: "", target: "", gameId: "", reason: "", note: "" };
+    var reqId = "", step = 0, saved = [];
+    function newReq() { reqId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+    newReq();
+    var head = h("div", { class: "wz-head" }), body = h("div", { class: "wz-body" });
+    var err = h("div", { class: "err", hidden: true }), foot = h("div", { class: "foot" });
+    openSheet([head, body, err, foot]);
+
+    function go(n) { step = n; err.hidden = true; draw(); sheet.scrollTop = 0; }
+    function next() { go(step + 1); }
+    function fail(m) { err.textContent = m; err.hidden = false; }
+    function kindName(k) { return k === "coin" ? "coin" : k === "ticket" ? "チケット" : k === "pt" ? "+POINT" : ""; }
+    function what() {
+      if (w.kind === "ticket") return (w.item || "チケット") + " " + w.count + "枚";
+      if (w.kind) return fmtNum(w.amount) + (w.kind === "pt" ? " pt（+POINT）" : " coin");
+      return "";
+    }
+    function pickBtns(list, cur, onPick, extraCls) {
+      return list.map(function (v) {
+        return h("button", { class: "choice" + (extraCls ? " " + extraCls(v) : ""), type: "button", "aria-pressed": v === cur ? "true" : "false",
+          onclick: function () { sheetDirty = true; onPick(v); } }, v.label || v);
+      });
+    }
+    function focusLater(el) { setTimeout(function () { try { el.focus(); } catch (e) {} }, 60); }
+    function onEnter(el, fn) { el.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); fn(); } }); }
+
+    function draw() {
+      head.textContent = ""; body.textContent = ""; foot.textContent = "";
+      var isDone = step >= STEPS.length;
+      add(head, [
+        h("div", { class: "wz-step", text: isDone ? "登録しました" : (step + 1) + " / " + STEPS.length }),
+        h("h2", { id: "sheetTitle", text: isDone ? "登録しました" : STEPS[step] }),
+        h("div", { class: "wz-bar" }, h("i", { style: "width:" + (isDone ? 100 : Math.round((step + 1) / STEPS.length * 100)) + "%" }))
+      ]);
+      var nextFn = null, nextLabel = "次へ";
+
+      if (step === 0) {
+        add(body, h("div", { class: "people" }, S.staff.map(function (s) {
+          return h("button", { class: "choice", type: "button", "aria-pressed": s.name === w.by ? "true" : "false",
+            onclick: function () { sheetDirty = true; w.by = s.name; next(); } }, s.name);
+        })));
+      } else if (step === 1) {
+        add(body, h("div", { class: "choices kinds" }, ["coin", "ticket", "pt"].map(function (k) {
+          return h("button", { class: "choice k-" + k, type: "button", "aria-pressed": k === w.kind ? "true" : "false",
+            onclick: function () { sheetDirty = true; w.kind = k; if (k !== "ticket") w.item = ""; draw(); } }, kindName(k));
+        })));
+        // 選んだ種類の中身（チケットなら種類と枚数、coin・+POINT なら数）
+        if (w.kind === "ticket") {
+          var count = h("input", { class: "inp mono", id: "wzCount", type: "text", inputmode: "numeric", value: w.count, "aria-label": "枚数" });
+          count.addEventListener("input", function () { w.count = count.value; });
+          function stepBy(d) { var v = parseInt(count.value, 10) || 0; count.value = String(Math.max(1, v + d)); w.count = count.value; }
+          add(body, [
+            h("div", { class: "lab wz-sub", text: "チケットの種類" }),
+            h("div", { class: "choices" }, pickBtns(cfg.tickets, w.item, function (v) { w.item = String(v); draw(); }, function () { return "k-ticket"; })),
+            h("div", { class: "lab wz-sub", text: "枚数" }),
+            h("div", { class: "stepper" }, h("button", { type: "button", "aria-label": "1枚減らす", onclick: function () { stepBy(-1); } }, "−"), count,
+              h("button", { type: "button", "aria-label": "1枚増やす", onclick: function () { stepBy(1); } }, "＋"), h("span", { class: "unit", text: "枚" }))
+          ]);
+        } else if (w.kind) {
+          var amount = h("input", { class: "inp mono", id: "wzAmount", type: "text", inputmode: "numeric", autocomplete: "off", placeholder: "例：15000", value: w.amount });
+          amount.addEventListener("input", function () { w.amount = amount.value; });
+          onEnter(amount, function () { nextFn && nextFn(); });
+          add(body, [
+            h("div", { class: "lab wz-sub", text: w.kind === "pt" ? "+POINT の数" : "coin の数" }),
+            h("div", { class: "amountrow" }, amount, h("span", { class: "unit", text: w.kind === "pt" ? "pt" : "coin" })),
+            h("div", { class: "quick" }, [5000, 10000, 15000, 30000, 50000].map(function (v) { return h("button", { type: "button", onclick: function () { sheetDirty = true; amount.value = String(v); w.amount = amount.value; } }, fmtNum(v)); }))
+          ]);
+          if (!w.amount) focusLater(amount);
+        }
+        nextFn = function () {
+          if (!w.kind) return fail("coin / チケット / +POINT から選んでください");
+          if (w.kind === "ticket") {
+            if (!w.item) return fail("チケットの種類を選んでください");
+            var c = parseInt(w.count, 10); if (!c || c < 1) return fail("枚数を入れてください");
+            w.count = String(c);
+          } else {
+            var a = parseInt(String(w.amount).replace(/[^0-9]/g, ""), 10);
+            if (!a) return fail(w.kind === "pt" ? "+POINT の数を入れてください" : "coin の数を入れてください");
+            w.amount = String(a);
+          }
+          next();
+        };
+      } else if (step === 2) {
+        var names = Object.keys(knownIds());
+        var nm = h("input", { class: "inp", id: "wzName", type: "text", list: "wzNames", autocomplete: "off", placeholder: "対象者の名前", value: w.target });
+        nm.addEventListener("input", function () { w.target = nm.value; });
+        add(body, [nm, h("datalist", { id: "wzNames" }, names.map(function (n) { return h("option", { value: n }); }))]);
+        nextFn = function () {
+          w.target = nm.value.trim();
+          if (!w.target) return fail("対象者の名前を入れてください");
+          var known = knownIds()[w.target];
+          if (known && !w.gameId) w.gameId = known; // 前に登録した人なら Game ID を先に入れておく
+          next();
+        };
+        onEnter(nm, function () { nextFn(); });
+        focusLater(nm);
+      } else if (step === 3) {
+        var g = h("input", { class: "inp mono", id: "wzGid", type: "text", inputmode: "numeric", autocomplete: "off", placeholder: "Game ID", value: w.gameId ? fmtGid(w.gameId) : "" });
+        g.addEventListener("input", function () { w.gameId = normId(g.value); });
+        var known = knownIds()[w.target];
+        add(body, [g, h("p", { class: "lead wz-note", text: known ? "前回の Game ID を入れてあります。違うときは書き換えてください。" : "分からないときは、空のまま「次へ」で進めます（「Game ID 不明」として登録）。" })]);
+        nextFn = function () { w.gameId = normId(g.value); next(); };
+        onEnter(g, function () { nextFn(); });
+        focusLater(g);
+      } else if (step === 4) {
+        add(body, h("div", { class: "choices wz-col" }, pickBtns(cfg.reasons, w.reason, function (v) { w.reason = String(v); next(); })));
+      } else if (step === 5) {
+        var nt = h("input", { class: "inp", id: "wzNote", type: "text", autocomplete: "off", placeholder: "補足があれば（なくても大丈夫）", value: w.note });
+        nt.addEventListener("input", function () { w.note = nt.value; });
+        add(body, nt);
+        nextFn = function () { w.note = nt.value.trim(); next(); };
+        onEnter(nt, function () { nextFn(); });
+        focusLater(nt);
+      } else if (step === 6) {
+        function row(label, val, to) {
+          return h("div", { class: "wz-row" }, h("span", { class: "k", text: label }), h("b", { text: val }),
+            h("button", { class: "wz-edit", type: "button", onclick: function () { go(to); } }, "直す"));
+        }
+        add(body, h("div", { class: "wz-sum" }, [
+          row("登録する人", w.by, 0),
+          row("付与するもの", what(), 1),
+          row("対象者", w.target, 2),
+          row("Game ID", w.gameId ? fmtGid(w.gameId) : "なし（不明）", 3),
+          row("未付与の理由", w.reason, 4),
+          row("備考", w.note || "なし", 5)
+        ]));
+        nextLabel = "登録する";
+        nextFn = function () {
+          var amt = w.kind === "ticket" ? parseInt(w.count, 10) : parseInt(w.amount, 10);
+          var p = { store: S.store, reqId: reqId, createdBy: w.by, kind: w.kind, item: w.kind === "ticket" ? w.item : "", amount: amt, reason: w.reason, note: w.note,
+            targets: [{ target: w.target, gameId: w.gameId, gameIdUnknown: !w.gameId }] };
+          nb.disabled = true;
+          call("addEntries", p).then(function () {
+            saved.push(w.target); sheetDirty = false; go(STEPS.length);
+          }, function (er) { nb.disabled = false; fail("保存できませんでした：" + errMsg(er) + "（もう一度押せます）"); });
+        };
+      } else {
+        // 登録が終わった画面
+        add(body, [
+          h("p", { class: "wz-done", text: saved.join("、") + " さんを未付与として登録しました（" + what() + "）。" }),
+          h("div", { class: "wz-col" },
+            h("button", { class: "btn primary", type: "button", onclick: function () { w.target = ""; w.gameId = ""; newReq(); go(2); } }, "同じ内容で別の人も登録する"),
+            h("button", { class: "btn", type: "button", onclick: closeSheet }, "閉じる"))
+        ]);
+        return;
+      }
+
+      var nb = null;
+      add(foot, [
+        step > 0 ? h("button", { class: "btn ghost", type: "button", onclick: function () { go(step - 1); } }, "‹ 戻る")
+          : h("button", { class: "btn ghost", type: "button", onclick: requestClose }, "やめる"),
+        h("span", { class: "spacer" }),
+        nextFn ? (nb = h("button", { class: "btn primary", type: "button", onclick: function () { nextFn(); } }, nextLabel)) : null
+      ]);
+    }
+    draw();
+  }
+
   // ---- 店舗を選ぶ ----
   function openStorePicker() {
     var first = !S.store;
@@ -741,7 +905,7 @@
     if (S.view === "list") setView("home", true);
   });
   document.getElementById("goList").addEventListener("click", function () { setView("list"); });
-  document.getElementById("goAdd").addEventListener("click", function () { if (!S.staff.length) openStaff(); else openForm(null); });
+  document.getElementById("goAdd").addEventListener("click", function () { if (!S.staff.length) openStaff(); else openWizard(); });
   document.getElementById("backBtn").addEventListener("click", function () { setView("home"); });
 
   document.querySelectorAll(".tab").forEach(function (b) {
