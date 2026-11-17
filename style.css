@@ -238,3 +238,50 @@ body[data-view="list"] .home { display: none; }
 .sumbar.k-pt .k, .sumbar.k-pt b { color: var(--pt); }
 .sumbar.k-ticket { background: var(--ticket-bg); border-color: var(--ticket); }
 .sumbar.k-ticket .k, .sumbar.k-ticket b { color: var(--ticket); }
+
+/* ===== 一覧：Game ID と未付与の中身だけのタイル（1画面にたくさん並べる） ===== */
+#list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-items: stretch; }
+#list > :not(.tile) { grid-column: 1 / -1; }
+.tile { display: grid; gap: 2px; align-content: start; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); position: relative; overflow: hidden; min-width: 0; }
+.tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+.tile.k-coin::before { background: var(--coin); }
+.tile.k-ticket::before { background: var(--ticket); }
+.tile.k-pt::before { background: var(--pt); }
+.tile.age-warn { background: var(--warn-bg); border-color: var(--warn); }
+.tile.age-late { background: var(--danger-bg); border-color: var(--danger); }
+.tile.st-done { background: var(--done-bg); border-color: var(--done); }
+.tile.st-canceled { opacity: .7; }
+.tid { font-family: var(--font-mono); font-size: 17px; font-weight: 700; letter-spacing: .03em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tid.none { font-family: var(--font-body); font-size: 14px; color: var(--danger); }
+.twhat { font-weight: 900; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.twhat .tu { font-size: 12px; font-weight: 700; }
+.tile.k-coin .twhat { color: var(--coin); }
+.tile.k-ticket .twhat { color: var(--ticket); }
+.tile.k-pt .twhat { color: var(--pt); }
+.tage { font-size: 11px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tile.age-warn .tage { color: var(--warn); }
+.tile.age-late .tage { color: var(--danger); }
+.tile:active { transform: scale(.98); }
+.sheet .card { box-shadow: none; }
+
+/* ===== タブレット向け（横幅が広い画面） ===== */
+@media (min-width: 700px) {
+  .wrap { max-width: 1180px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+  body { font-size: 16px; }
+  h1 { font-size: 22px; }
+  .titlerow h1 { flex-basis: auto !important; }
+  #list { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .tid { font-size: 19px; }
+  .twhat { font-size: 18px; }
+  /* はじめの画面：2つのボタンを横に並べて大きく */
+  .home .wrap { grid-template-columns: 1fr 1fr; gap: 24px; padding-block: 48px; max-width: 980px; }
+  .bigbtn { min-height: 300px; border-radius: 28px; }
+  .bigbtn .bt { font-size: 34px; }
+  .bigbtn .bs { font-size: 17px; }
+  /* 入力や詳しい内容の画面は、画面の真ん中に出す */
+  .overlay { align-items: center; padding: 24px; }
+  .sheet { max-width: 640px; max-height: 88vh; border-radius: 20px; padding-bottom: 18px; }
+  .sheet > .foot { bottom: -18px; margin-bottom: -18px; padding-bottom: 12px; border-radius: 0 0 20px 20px; }
+  .people { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .toast { bottom: 32px; }
+}
