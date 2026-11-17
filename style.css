@@ -206,3 +206,24 @@ body[data-view="list"] .home { display: none; }
 .bigbtn.add { background: var(--accent); color: var(--accent-fg); }
 .bigbtn.add .bs { opacity: .85; }
 .bigbtn:active { transform: scale(.98); }
+
+/* 未付与を登録：1つずつ順番に入力する画面 */
+.wz-head { display: grid; gap: 6px; }
+.wz-step { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wz-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.wz-bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
+.wz-body { display: grid; gap: 10px; min-height: 120px; align-content: start; }
+.wz-body .inp { font-size: 18px; padding: 14px; }
+.wz-sub { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 6px; }
+.wz-note { margin: 0; }
+.wz-col { display: grid; gap: 8px; }
+.wz-col .choice, .wz-col .btn { padding: 14px; font-size: 16px; text-align: left; }
+.wz-col .btn { text-align: center; }
+.kinds .choice { padding: 16px 8px; font-size: 16px; }
+.wz-sum { display: grid; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.wz-row { display: grid; grid-template-columns: 7.5em 1fr auto; gap: 8px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
+.wz-row:first-child { border-top: 0; }
+.wz-row .k { font-size: 12px; color: var(--muted); font-weight: 700; }
+.wz-row b { overflow-wrap: anywhere; }
+.wz-edit { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 10px; font-size: 13px; color: var(--accent); font-weight: 700; }
+.wz-done { margin: 0; font-size: 16px; font-weight: 700; }
