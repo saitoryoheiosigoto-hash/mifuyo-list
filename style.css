@@ -234,3 +234,7 @@ body[data-view="list"] .home { display: none; }
 .sumbar b { font-size: 26px; font-weight: 900; color: var(--coin); font-variant-numeric: tabular-nums; }
 .sumbar b small { font-size: 14px; font-weight: 700; }
 .sumbar .n { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sumbar.k-pt { background: var(--pt-bg); border-color: var(--pt); }
+.sumbar.k-pt .k, .sumbar.k-pt b { color: var(--pt); }
+.sumbar.k-ticket { background: var(--ticket-bg); border-color: var(--ticket); }
+.sumbar.k-ticket .k, .sumbar.k-ticket b { color: var(--ticket); }
