@@ -133,7 +133,6 @@
     document.getElementById("nDone").textContent = done.length;
     document.getElementById("nCanceled").textContent = canceled.length;
     document.querySelectorAll(".tab").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.tab === S.tab ? "true" : "false"); });
-    document.getElementById("meName").textContent = S.me || "未選択";
     document.getElementById("storeName").textContent = S.store || "店舗を選ぶ";
     renderHome(pending);
     document.getElementById("demoNote").hidden = !!(IS_GAS || API_URL);
@@ -270,7 +269,7 @@
     else if (e.status === "付与済み") acts = h("div", { class: "actions" },
       h("button", { class: "btn ghost", type: "button", onclick: function () { startUngrant(e); } }, "未付与に戻す"));
     else acts = h("div", { class: "actions" },
-      h("button", { class: "btn ghost", type: "button", onclick: function () { needMe(function () { call("restoreEntry", e.id, S.me).then(function () { toast("未付与に戻しました"); }, saveFail); }); } }, "未付与に戻す"));
+      h("button", { class: "btn ghost", type: "button", onclick: function () { startRestore(e); } }, "未付与に戻す"));
 
     return h("article", { class: cls },
       h("div", { class: "row1" }, h("div", { class: "who" }, h("div", { class: "name", text: e.target || "（名前なし）" }), gid), pill(e)),
@@ -321,22 +320,27 @@
   overlay.addEventListener("click", function (ev) { if (ev.target === overlay) requestClose(); });
   document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && !overlay.hidden) requestClose(); });
 
-  // ---- あなたは誰？ ----
-  function needMe(then) { if (S.me) then(); else openMe(then); }
-  function openMe(then) {
-    if (!S.staff.length) { openStaff(); return; }
+  // ---- 誰が操作したか（毎回その場で選ぶ） ----
+  function staffChoices(f, key, onPick) {
+    var btns = S.staff.map(function (s) {
+      return h("button", { class: "choice", type: "button", "data-v": s.name, "aria-pressed": "false", onclick: function () { f[key] = s.name; sync(); if (onPick) onPick(); } }, s.name);
+    });
+    function sync() { btns.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.v === f[key] ? "true" : "false"); }); }
+    return btns;
+  }
+  // 取消から未付与に戻す人を選ぶ
+  function startRestore(e) {
     openSheet([
-      h("h2", { id: "sheetTitle", text: "あなたは誰ですか？" }),
-      h("p", { class: "lead", text: "この端末で使う名前を選びます。入力者・付与担当として記録されます。" }),
+      h("h2", { id: "sheetTitle", text: "未付与に戻しますか？" }),
+      h("p", { class: "lead", text: e.target + " さんの取消をやめて、未付与に戻します。戻す人を選んでください。" }),
       h("div", { class: "people" }, S.staff.map(function (s) {
-        return h("button", { class: "choice", type: "button", "aria-pressed": s.name === S.me ? "true" : "false",
-          onclick: function () { S.me = s.name; lsSet(meKey(), s.name); closeSheet(); render(); if (then) then(); } },
-          s.name, s.grantor ? h("div", { style: "font-size:11px;font-weight:500", text: "付与担当" }) : null);
+        return h("button", { class: "choice", type: "button", onclick: function () {
+          closeSheet(); call("restoreEntry", e.id, s.name).then(function () { toast("未付与に戻しました"); }, saveFail);
+        } }, s.name);
       })),
       h("div", { class: "foot" }, h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "やめる"))
     ]);
   }
-  document.getElementById("meBtn").addEventListener("click", function () { openMe(null); });
 
   // ---- 付与 ----
   function doGrant(e, by) {
@@ -355,12 +359,12 @@
     openSheet([
       h("h2", { id: "sheetTitle", text: "誰が付与しましたか？" }),
       h("p", { class: "lead", text: e.target + " さんへの付与を記録します。付与担当だけが選べます。" }),
-      h("div", { class: "people" }, gs.map(function (s) { return h("button", { class: "choice", type: "button", onclick: function () { doGrant(e, s.name); } }, s.name, s.name === S.me ? h("div", { style: "font-size:11px;font-weight:500", text: "あなた" }) : null); })),
+      h("div", { class: "people" }, gs.map(function (s) { return h("button", { class: "choice", type: "button", onclick: function () { doGrant(e, s.name); } }, s.name); })),
       h("div", { class: "foot" }, h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "やめる"))
     ]);
   }
   function startUngrant(e) {
-    var by = S.me && isGrantor(S.me) ? S.me : null;
+    var by = null;
     var gs = grantors();
     openSheet([
       h("h2", { id: "sheetTitle", text: "未付与に戻しますか？" }),
@@ -376,7 +380,9 @@
 
   // ---- 取消 ----
   function openCancel(e) {
-    needMe(function () {
+    (function () {
+      var who = { by: "" };
+      var whoBtns = staffChoices(who, "by");
       var reasons = ["書き間違い", "二重に登録した", "付与の必要がなくなった"];
       var other = h("input", { class: "inp", id: "cancelReason", type: "text", placeholder: "理由を入力", autocomplete: "off" });
       var picked = "";
@@ -387,24 +393,27 @@
       openSheet([
         h("h2", { id: "sheetTitle", text: "この記録を取り消す" }),
         h("p", { class: "lead", text: e.target + " さんの記録を「取消」にします。記録は消えずに取消タブに残ります。" }),
-        h("div", { class: "field" }, h("div", { class: "lab" }, "取消の理由", h("span", { class: "req", text: "必須" })), h("div", { class: "choices" }, btns), other, err),
+        h("div", { class: "field" }, h("div", { class: "lab" }, "取消の理由", h("span", { class: "req", text: "必須" })), h("div", { class: "choices" }, btns), other),
+        h("div", { class: "field" }, h("div", { class: "lab" }, "取消する人", h("span", { class: "req", text: "必須" })), h("div", { class: "choices" }, whoBtns)),
+        err,
         h("div", { class: "foot" },
-          h("span", { class: "meta", text: "取消する人：" + S.me }), h("span", { class: "spacer" }),
-          h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "やめる"),
+          h("span", { class: "spacer" }),
+          h("button", { class: "btn ghost", type: "button", onclick: requestClose }, "やめる"),
           h("button", { class: "btn danger", type: "button", onclick: function () {
             var r = picked || other.value.trim();
-            if (!r) { err.hidden = false; return; }
+            if (!r) { err.textContent = "理由を選ぶか入力してください"; err.hidden = false; return; }
+            if (!who.by) { err.textContent = "取消する人を選んでください"; err.hidden = false; return; }
             closeSheet();
-            call("cancelEntry", e.id, S.me, r).then(function () { toast("取り消しました"); }, saveFail);
+            call("cancelEntry", e.id, who.by, r).then(function () { toast("取り消しました"); }, saveFail);
           } }, "取り消す"))
       ]);
-    });
+    })();
   }
 
   // ---- 登録・修正フォーム ----
   function openForm(existing) {
-    if (existing) { buildForm(existing); return; } // 修正は保存時に「修正した人」を選ぶ
-    needMe(function () { buildForm(existing); });
+    if (!S.staff.length) { openStaff(); return; }
+    buildForm(existing); // 登録する人・修正した人はフォームの中で選ぶ
   }
   function buildForm(existing) {
     var editing = !!existing;
@@ -477,9 +486,9 @@
 
     var reasonBtns = cfg.reasons.map(function (t) { return h("button", { class: "choice", type: "button", "data-v": t, "aria-pressed": "false", onclick: function () { f.reason = t; sync(); } }, t); });
     var note = h("input", { class: "inp", id: "note", type: "text", autocomplete: "off", placeholder: "補足があれば", value: existing ? existing.note || "" : "" });
-    var editorBtns = editing ? S.staff.map(function (s) {
+    var editorBtns = S.staff.map(function (s) {
       return h("button", { class: "choice", type: "button", "data-v": s.name, "aria-pressed": "false", onclick: function () { f.editor = s.name; sync(); } }, s.name);
-    }) : [];
+    });
 
     function sync() {
       kindBtns.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.v === f.kind ? "true" : "false"); });
@@ -524,9 +533,9 @@
         if (miss) return fail(miss.target + " さんの Game ID を入れてください。分からないときは「Game ID が分からない」にチェックを入れてください");
       }
       if (!f.reason) return fail("未付与の理由を選んでください");
-      if (editing && !f.editor) return fail("修正した人を選んでください");
+      if (!f.editor) return fail(editing ? "修正した人を選んでください" : "登録する人を選んでください");
       // reqId：この画面で1回だけ作る番号。電波が悪くて送り直しても、同じ登録が2件にならない
-      var p = { store: S.store, reqId: reqId, createdBy: S.me, kind: f.kind, item: f.kind === "ticket" ? f.item : "", amount: amt, reason: f.reason, note: note.value.trim() };
+      var p = { store: S.store, reqId: reqId, createdBy: f.editor, kind: f.kind, item: f.kind === "ticket" ? f.item : "", amount: amt, reason: f.reason, note: note.value.trim() };
       saveBtn.disabled = true;
       var pr;
       if (editing) { p.target = rows[0].target; p.gameId = rows[0].gameId; p.gameIdUnknown = rows[0].gameIdUnknown; pr = call("updateEntry", existing.id, p, f.editor); }
@@ -542,6 +551,7 @@
     openSheet([
       h("h2", { id: "sheetTitle", text: editing ? "記録を修正" : "未付与を登録" }),
       dl,
+      editing ? null : h("div", { class: "field" }, h("div", { class: "lab" }, "登録する人", h("span", { class: "req", text: "必須" })), h("div", { class: "choices" }, editorBtns)),
       h("div", { class: "field" }, h("div", { class: "lab" }, "付与するもの", h("span", { class: "req", text: "必須" })), h("div", { class: "choices kinds" }, kindBtns)),
       ticketBox, amountBox,
       h("div", { class: "field" }, gidLab, targets,
@@ -551,7 +561,6 @@
       editing ? h("div", { class: "field" }, h("div", { class: "lab" }, "修正した人", h("span", { class: "req", text: "必須" })), h("div", { class: "choices" }, editorBtns)) : null,
       err,
       h("div", { class: "foot" },
-        editing ? null : h("span", { class: "meta", text: "入力者：" + S.me }),
         h("span", { class: "spacer" }),
         h("button", { class: "btn ghost", type: "button", onclick: requestClose }, "やめる"), saveBtn)
     ]);
