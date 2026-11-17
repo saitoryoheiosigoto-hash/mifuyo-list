@@ -172,11 +172,13 @@
     if (S.tab === "done" && items.length) {
       list.appendChild(h("div", { class: "legend", text: "付与から3か月たった記録は、自動でこの一覧から消えます（スプレッドシートの保管シートに残ります）。" }));
     }
-    // coin で絞り込んだときは、未付与 coin の合計を出す
-    if (S.tab === "pending" && S.kind === "coin" && items.length) {
-      var coinSum = items.reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
-      list.appendChild(h("div", { class: "sumbar" }, h("span", { class: "k", text: "未付与 coin の合計" + (q ? "（検索結果）" : "") }),
-        h("b", null, fmtNum(coinSum), h("small", { text: " coin" })), h("span", { class: "n", text: items.length + " 件" })));
+    // 種類で絞り込んだときは未付与の合計を出す（coin・+POINT は数、チケットは種類を選んだときに枚数）
+    if (S.tab === "pending" && items.length && (S.kind === "coin" || S.kind === "pt" || (S.kind === "ticket" && S.item))) {
+      var total = items.reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
+      var sumName = S.kind === "coin" ? "coin" : S.kind === "pt" ? "+POINT" : S.item;
+      var sumUnit = S.kind === "coin" ? " coin" : S.kind === "pt" ? " pt" : " 枚";
+      list.appendChild(h("div", { class: "sumbar k-" + S.kind }, h("span", { class: "k", text: "未付与 " + sumName + " の合計" + (q ? "（検索結果）" : "") }),
+        h("b", null, fmtNum(total), h("small", { text: sumUnit })), h("span", { class: "n", text: items.length + " 件" })));
     }
     if (S.tab === "pending" && items.length) {
       list.appendChild(h("div", { class: "legend" },
