@@ -172,6 +172,12 @@
     if (S.tab === "done" && items.length) {
       list.appendChild(h("div", { class: "legend", text: "付与から3か月たった記録は、自動でこの一覧から消えます（スプレッドシートの保管シートに残ります）。" }));
     }
+    // coin で絞り込んだときは、未付与 coin の合計を出す
+    if (S.tab === "pending" && S.kind === "coin" && items.length) {
+      var coinSum = items.reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
+      list.appendChild(h("div", { class: "sumbar" }, h("span", { class: "k", text: "未付与 coin の合計" + (q ? "（検索結果）" : "") }),
+        h("b", null, fmtNum(coinSum), h("small", { text: " coin" })), h("span", { class: "n", text: items.length + " 件" })));
+    }
     if (S.tab === "pending" && items.length) {
       list.appendChild(h("div", { class: "legend" },
         h("span", null, h("i", { style: "background:var(--line)" }), "2日以内"),
