@@ -58,8 +58,11 @@
   function saveFail(e) { toast("保存できませんでした：" + errMsg(e)); refresh(); }
 
   var busyEl = document.getElementById("busy");
+  // 保存のたびに番号を進める。保存より前に始まった自動更新の結果は捨てる（古い一覧に戻らないように）
+  var writeSeq = 0;
   function call(name) {
     var args = arguments;
+    writeSeq++;
     busyEl.hidden = false;
     return api.apply(null, args).then(function (d) { busyEl.hidden = true; applyData(d); return d; },
       function (e) { busyEl.hidden = true; throw e; });
@@ -89,7 +92,11 @@
   function dayLabel(iso) { var d = new Date(iso); if (isNaN(d)) return ""; return (d.getMonth() + 1) + "月" + d.getDate() + "日（" + "日月火水木金土"[d.getDay()] + "）"; }
   function ageDays(iso) { var d = new Date(iso); if (isNaN(d)) return 0; var a = new Date(d.getFullYear(), d.getMonth(), d.getDate()); var n = new Date(); var b = new Date(n.getFullYear(), n.getMonth(), n.getDate()); return Math.max(0, Math.round((b - a) / 86400000)); }
   function ageLevel(days) { return days >= 7 ? "late" : days >= 3 ? "warn" : ""; }
-  function normId(s) { return String(s || "").replace(/[\s.\-ー－・]/g, ""); }
+  function toHalf(s) { return String(s || "").replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); }
+  function normId(s) { return toHalf(s).replace(/[\s.\-ー－・]/g, ""); }
+  function gidOk(s) { return /^[0-9]{8}$/.test(normId(s)); } // Game ID は8桁の数字
+  // 数の入力：数字（とカンマ）だけを受け付ける。「1.5」「-5000」などは null にして入れ直してもらう
+  function parseCount(v) { var s = toHalf(v).replace(/[,，\s]/g, ""); if (!/^[0-9]+$/.test(s)) return null; var n = Number(s); return Number.isSafeInteger(n) && n >= 1 ? n : null; }
   function fmtGid(s) { var d = normId(s); return /^[0-9]{8}$/.test(d) ? d.slice(0, 4) + " " + d.slice(4) : d; }
   function fmtNum(n) { return Number(n || 0).toLocaleString("ja-JP"); }
   function isGrantor(n) { return S.staff.some(function (s) { return s.name === n && s.grantor; }); }
@@ -161,6 +168,11 @@
     if (q) {
       var qd = normId(q);
       src = src.filter(function (e) { return String(e.target || "").toLowerCase().indexOf(q) >= 0 || (qd && normId(e.gameId).indexOf(qd) >= 0); });
+    }
+    if (S.old && S.tab === "pending") {
+      src = src.filter(function (e) { return ageDays(e.createdAt) >= 7; });
+      list.appendChild(h("div", { class: "oldbar" }, h("span", { text: "7日以上たった未付与だけを表示しています" }),
+        h("button", { class: "btn", type: "button", onclick: function () { S.old = false; render(); } }, "すべて表示")));
     }
     renderFilters(src);
     if (S.kind) src = src.filter(function (e) { return e.kind === S.kind && (S.kind !== "ticket" || !S.item || e.item === S.item); });
@@ -378,16 +390,24 @@
       toast(e.target + " さんを付与済みにしました", function () { call("ungrant", e.id, by).then(function () { toast("取り消しました"); }, saveFail); });
     }, saveFail);
   }
+  // 付与・戻すの前に「誰に何を」を大きく見せる
+  function whoWhat(e) {
+    return h("div", { class: "grant-sum k-" + e.kind },
+      h("span", { class: "gid-big", text: e.gameId ? "ID " + fmtGid(e.gameId) : "ID不明" }),
+      h("span", { class: "twhat" }, tileWhat(e)),
+      h("span", { class: "gname", text: (e.target || "") + " さん" }));
+  }
+  function noGrantor() {
+    openSheet([h("h2", { id: "sheetTitle", text: "付与担当がいません" }), h("p", { class: "lead", text: "スタッフの設定で、付与できる人に「付与担当」を付けてください。" }),
+      h("div", { class: "foot" }, h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "閉じる"), h("button", { class: "btn primary", type: "button", onclick: openStaff }, "スタッフの設定"))]);
+  }
   function startGrant(e) {
     var gs = grantors();
-    if (!gs.length) {
-      openSheet([h("h2", { id: "sheetTitle", text: "付与担当がいません" }), h("p", { class: "lead", text: "スタッフの設定で、付与できる人に「付与担当」を付けてください。" }),
-        h("div", { class: "foot" }, h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "閉じる"), h("button", { class: "btn primary", type: "button", onclick: openStaff }, "スタッフの設定"))]);
-      return;
-    }
+    if (!gs.length) { noGrantor(); return; }
     openSheet([
       h("h2", { id: "sheetTitle", text: "誰が付与しましたか？" }),
-      h("p", { class: "lead", text: e.target + " さんへの付与を記録します。付与担当だけが選べます。" }),
+      whoWhat(e),
+      h("p", { class: "lead", text: "この内容を付与しましたか？ 付与した担当を選んでください（付与担当だけが選べます）。" }),
       h("div", { class: "people" }, gs.map(function (s) { return h("button", { class: "choice", type: "button", onclick: function () { doGrant(e, s.name); } }, s.name); })),
       h("div", { class: "foot" }, h("button", { class: "btn ghost", type: "button", onclick: closeSheet }, "やめる"))
     ]);
@@ -395,9 +415,11 @@
   function startUngrant(e) {
     var by = null;
     var gs = grantors();
+    if (!gs.length) { noGrantor(); return; }
     openSheet([
       h("h2", { id: "sheetTitle", text: "未付与に戻しますか？" }),
-      h("p", { class: "lead", text: e.target + " さんの付与記録を消して、未付与に戻します。付与担当が操作してください。" }),
+      whoWhat(e),
+      h("p", { class: "lead", text: "この付与の記録を消して、未付与に戻します。付与担当が操作してください。" }),
       h("div", { class: "people" }, gs.map(function (s) {
         return h("button", { class: "choice", type: "button", "aria-pressed": s.name === by ? "true" : "false", onclick: function () {
           closeSheet(); call("ungrant", e.id, s.name).then(function () { toast("未付与に戻しました"); }, saveFail);
@@ -551,12 +573,14 @@
       var amt;
       if (f.kind === "ticket") {
         if (!f.item) return fail("チケットの種類を選んでください");
-        amt = parseInt(count.value, 10);
-        if (!amt || amt < 1) return fail("枚数を入れてください");
+        amt = parseCount(count.value);
+        if (!amt) return fail("枚数は数字だけで入れてください（例：2）");
       } else {
-        amt = parseInt(String(amount.value).replace(/[^0-9]/g, ""), 10);
-        if (!amt) return fail(f.kind === "pt" ? "+POINT の数を入れてください" : "coin の数を入れてください");
+        amt = parseCount(amount.value);
+        if (!amt) return fail((f.kind === "pt" ? "+POINT の数" : "coin の数") + "は数字だけで入れてください（例：15000）");
       }
+      var badId = rows.filter(function (r) { return r.gameId && !gidOk(r.gameId); })[0];
+      if (badId) return fail(badId.target + " さんの Game ID は8桁の数字です（いま " + normId(badId.gameId).length + " 桁）");
       if (gidRequired(f.kind, f.item)) {
         var miss = rows.filter(function (r) { return !r.gameId && !r.gameIdUnknown; })[0];
         if (miss) return fail(miss.target + " さんの Game ID を入れてください。分からないときは「Game ID が分からない」にチェックを入れてください");
@@ -602,8 +626,8 @@
     if (!S.staff.length) { openStaff(); return; }
     var cfg = S.config;
     var STEPS = ["登録する人", "付与するもの", "対象者の名前", "Game ID", "未付与の理由", "備考", "確認して登録"];
-    var w = { by: "", kind: "", item: "", count: "1", amount: "", target: "", gameId: "", reason: "", note: "" };
-    var reqId = "", step = 0, saved = [], resume = false, gidFrom = "";
+    var w = { by: "", kind: "", item: "", count: "1", amount: "", target: "", gameId: "", gidUnknown: false, gidFor: "", reason: "", note: "" };
+    var reqId = "", step = 0, saved = [], resume = false;
     function newReq() { reqId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
     newReq();
     var head = h("div", { class: "wz-head" }), body = h("div", { class: "wz-body" });
@@ -676,11 +700,11 @@
           if (!w.kind) return fail("coin / チケット / +POINT から選んでください");
           if (w.kind === "ticket") {
             if (!w.item) return fail("チケットの種類を選んでください");
-            var c = parseInt(w.count, 10); if (!c || c < 1) return fail("枚数を入れてください");
+            var c = parseCount(w.count); if (!c) return fail("枚数は数字だけで入れてください（例：2）");
             w.count = String(c);
           } else {
-            var a = parseInt(String(w.amount).replace(/[^0-9]/g, ""), 10);
-            if (!a) return fail(w.kind === "pt" ? "+POINT の数を入れてください" : "coin の数を入れてください");
+            var a = parseCount(w.amount);
+            if (!a) return fail((w.kind === "pt" ? "+POINT の数" : "coin の数") + "は数字だけで入れてください（例：15000）");
             w.amount = String(a);
           }
           next();
@@ -693,19 +717,26 @@
         nextFn = function () {
           w.target = nm.value.trim();
           if (!w.target) return fail("対象者の名前を入れてください");
+          // 名前を変えたら、前の人の Game ID（手で入れたものも、ID不明も）は消す
+          if (w.gidFor && w.gidFor !== w.target) { w.gameId = ""; w.gidUnknown = false; w.gidFor = ""; }
           var known = knownIds()[w.target];
-          if (gidFrom && gidFrom !== w.target) { w.gameId = ""; gidFrom = ""; } // 名前を変えたら、前の人の Game ID は消す
-          if (known && !w.gameId) { w.gameId = known; gidFrom = w.target; } // 前に登録した人なら Game ID を先に入れておく
+          if (known && !w.gameId && !w.gidUnknown) { w.gameId = known; w.gidFor = w.target; } // 前に登録した人なら Game ID を先に入れておく
           next();
         };
         onEnter(nm, function () { nextFn(); });
         focusLater(nm);
       } else if (step === 3) {
         var g = h("input", { class: "inp mono", id: "wzGid", type: "text", inputmode: "numeric", autocomplete: "off", placeholder: "Game ID", value: w.gameId ? fmtGid(w.gameId) : "" });
-        g.addEventListener("input", function () { w.gameId = normId(g.value); gidFrom = ""; });
+        g.addEventListener("input", function () { w.gameId = normId(g.value); w.gidUnknown = false; });
         var known = knownIds()[w.target];
-        add(body, [g, h("p", { class: "lead wz-note", text: known ? "前回の Game ID を入れてあります。違うときは書き換えてください。" : "分からないときは、空のまま「次へ」で進めます（「Game ID 不明」として登録）。" })]);
-        nextFn = function () { w.gameId = normId(g.value); next(); };
+        add(body, [g, h("p", { class: "lead wz-note", text: known ? "前回の Game ID を入れてあります。違うときは書き換えてください。" : "Game ID（8桁の数字）を入れて「次へ」を押してください。" }),
+          h("button", { class: "btn wz-unk", type: "button", onclick: function () { sheetDirty = true; w.gameId = ""; w.gidUnknown = true; w.gidFor = w.target; next(); } }, "Game ID が分からない（ID不明で登録）")]);
+        nextFn = function () {
+          w.gameId = normId(g.value);
+          if (!w.gameId) return fail("Game ID を入れてください。分からないときは「Game ID が分からない」を押してください");
+          if (!gidOk(w.gameId)) return fail("Game ID は8桁の数字です（いま " + w.gameId.length + " 桁）");
+          w.gidUnknown = false; w.gidFor = w.target; next();
+        };
         onEnter(g, function () { nextFn(); });
         focusLater(g);
       } else if (step === 4) {
@@ -726,15 +757,21 @@
           row("登録する人", w.by, 0),
           row("付与するもの", what(), 1),
           row("対象者", w.target, 2),
-          row("Game ID", w.gameId ? fmtGid(w.gameId) : "なし（不明）", 3),
+          row("Game ID", w.gameId ? fmtGid(w.gameId) : "ID不明", 3),
           row("未付与の理由", w.reason, 4),
           row("備考", w.note || "なし", 5)
         ]));
+        // 同じ Game ID・同じ中身の未付与がもうあれば知らせる（登録はできる）
+        var wAmt = Number(w.kind === "ticket" ? w.count : w.amount), wItem = w.kind === "ticket" ? w.item : "";
+        var dup = w.gameId ? S.entries.filter(function (e) { return e.status === "未付与" && normId(e.gameId) === w.gameId && e.kind === w.kind && (e.item || "") === wItem && Number(e.amount) === wAmt; }) : [];
+        if (dup.length) add(body, h("div", { class: "wz-warn", role: "note" },
+          h("b", { text: "同じ Game ID・同じ中身の未付与が、すでに " + dup.length + " 件あります" }),
+          h("span", { text: "（" + dup.map(function (e) { return fmtDT(e.createdAt).split(" ")[0] + " 登録"; }).join("、") + "）二重に登録していないか確かめてください。このまま登録もできます。" })));
         nextLabel = "登録する";
         nextFn = function () {
           var amt = w.kind === "ticket" ? parseInt(w.count, 10) : parseInt(w.amount, 10);
           var p = { store: S.store, reqId: reqId, createdBy: w.by, kind: w.kind, item: w.kind === "ticket" ? w.item : "", amount: amt, reason: w.reason, note: w.note,
-            targets: [{ target: w.target, gameId: w.gameId, gameIdUnknown: !w.gameId }] };
+            targets: [{ target: w.target, gameId: w.gameId, gameIdUnknown: w.gidUnknown || !w.gameId }] };
           nb.disabled = true;
           call("addEntries", p).then(function () {
             saved.push(w.target); sheetDirty = false; go(STEPS.length);
@@ -745,7 +782,7 @@
         add(body, [
           h("p", { class: "wz-done", text: saved.join("、") + " さんを未付与として登録しました（" + what() + "）。" }),
           h("div", { class: "wz-col" },
-            h("button", { class: "btn primary", type: "button", onclick: function () { w.target = ""; w.gameId = ""; gidFrom = ""; newReq(); resume = true; go(2); } }, "同じ内容で別の人も登録する"),
+            h("button", { class: "btn primary", type: "button", onclick: function () { w.target = ""; w.gameId = ""; w.gidUnknown = false; w.gidFor = ""; newReq(); resume = true; go(2); } }, "同じ内容で別の人も登録する"),
             h("button", { class: "btn", type: "button", onclick: closeSheet }, "閉じる"))
         ]);
         return;
@@ -913,12 +950,13 @@
     if (!pending.length) { hc.textContent = "今は未付与はありません"; return; }
     var late = pending.filter(function (e) { return ageDays(e.createdAt) >= 7; }).length;
     hc.textContent = "";
-    add(hc, ["今 ", h("b", { text: String(pending.length) }), " 件", late ? "（7日以上：" + late + " 件）" : ""]);
+    add(hc, ["今 ", h("b", { text: String(pending.length) }), " 件"]);
+    if (late) add(hc, h("span", { class: "late-link" }, "7日以上：", h("b", { text: String(late) }), " 件 ›"));
   }
   function setView(v, fromHistory) {
     if (S.view === v) return;
     S.view = v;
-    if (v === "list") { S.tab = "pending"; S.q = ""; S.kind = ""; S.item = ""; document.getElementById("search").value = ""; pushExtra(); }
+    if (v === "list") { S.tab = "pending"; S.q = ""; S.kind = ""; S.item = ""; S.old = false; document.getElementById("search").value = ""; pushExtra(); }
     else if (!fromHistory && overlay.hidden) dropExtra();
     render(); window.scrollTo(0, 0);
   }
@@ -935,7 +973,12 @@
     if (!overlay.hidden) { requestClose(); if (!overlay.hidden || S.view === "list") pushExtra(); return; }
     if (S.view === "list") setView("home", true);
   });
-  document.getElementById("goList").addEventListener("click", function () { setView("list"); });
+  // 「7日以上：◯件」の所を押したときは、古い未付与だけを出す
+  document.getElementById("goList").addEventListener("click", function (ev) {
+    var old = !!(ev.target && ev.target.closest && ev.target.closest(".late-link"));
+    setView("list");
+    if (old) { S.old = true; render(); }
+  });
   document.getElementById("goAdd").addEventListener("click", function () { if (!S.staff.length) openStaff(); else openWizard(); });
   document.getElementById("backBtn").addEventListener("click", function () { setView("home"); });
 
@@ -946,8 +989,8 @@
 
   function refresh() {
     if (!S.store) return Promise.resolve();
-    var st = S.store;
-    return api("getData", st).then(function (d) { if (st === S.store) applyData(d); },
+    var st = S.store, seq = writeSeq;
+    return api("getData", st).then(function (d) { if (st === S.store && seq === writeSeq) applyData(d); },
       function (e) { if (st === S.store) { S.error = errMsg(e); render(); } });
   }
   // 前回の一覧を先に見せる（新しい内容が届いたら入れ替える）
