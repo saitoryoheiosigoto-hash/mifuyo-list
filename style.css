@@ -285,3 +285,22 @@ body[data-view="list"] .home { display: none; }
   .people { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .toast { bottom: 32px; }
 }
+
+/* ChatGPT と見直した改善（付与前の確認・ID不明ボタン・二重登録の注意・7日以上だけ表示） */
+.grant-sum { display: grid; gap: 2px; border: 2px solid var(--line); border-radius: 14px; padding: 12px 16px; background: var(--bg); }
+.grant-sum.k-coin { border-color: var(--coin); background: var(--coin-bg); }
+.grant-sum.k-ticket { border-color: var(--ticket); background: var(--ticket-bg); }
+.grant-sum.k-pt { border-color: var(--pt); background: var(--pt-bg); }
+.grant-sum .gid-big { font-family: var(--font-mono); font-size: 22px; font-weight: 700; letter-spacing: .03em; font-variant-numeric: tabular-nums; }
+.grant-sum .twhat { font-size: 22px; }
+.grant-sum .gname { font-size: 14px; color: var(--muted); }
+.grant-sum.k-coin .twhat { color: var(--coin); }
+.grant-sum.k-ticket .twhat { color: var(--ticket); }
+.grant-sum.k-pt .twhat { color: var(--pt); }
+.wz-unk { justify-self: start; border-style: dashed; color: var(--fg); }
+.wz-warn { display: grid; gap: 4px; background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+.wz-warn b { color: var(--warn); }
+.oldbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); border-radius: 12px; padding: 8px 12px; font-weight: 700; }
+.oldbar .btn { padding: 6px 12px; }
+.late-link { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); font-weight: 700; }
+.late-link b { color: var(--danger); }
