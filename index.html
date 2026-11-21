@@ -14,6 +14,84 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css?v=20261121b">
+</head>
+<body data-view="home">
+
+<header class="top">
+  <div class="wrap">
+    <div class="titlerow">
+      <button class="chip-btn back-btn" id="backBtn" type="button">‹ ホーム</button>
+      <h1><span class="c">coin</span>・<span class="t">チケット</span>未付与リスト</h1>
+      <button class="chip-btn store-btn" id="storeBtn" type="button"><b id="storeName">店舗</b> ▾</button>
+      <button class="icon-btn" id="staffBtn" type="button" aria-label="設定（スタッフ・チケット）" title="設定（スタッフ・チケット）">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+    <div class="demo" id="demoNote" hidden>お試しモードです。「例）」の付いた記録はサンプルで、データはこの端末の中だけに保存されます。</div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="pending" aria-selected="true" type="button">未付与 <span class="n" id="nPending">0</span></button>
+      <button class="tab" role="tab" data-tab="done" aria-selected="false" type="button">付与済み <span class="n" id="nDone">0</span></button>
+      <button class="tab" role="tab" data-tab="canceled" aria-selected="false" type="button">取消 <span class="n" id="nCanceled">0</span></button>
+    </div>
+    <div class="searchrow"><input class="search" id="search" type="search" placeholder="名前・Game ID で探す" autocomplete="off"></div>
+    <div class="filters" id="filterKind" role="group" aria-label="種類で絞り込む"></div>
+    <div class="filters sub" id="filterItem" role="group" aria-label="チケットの種類で絞り込む" hidden></div>
+  </div>
+</header>
+
+<section class="home" id="home">
+  <div class="wrap">
+    <button class="bigbtn view" id="goList" type="button">
+      <span class="bt">未付与を見る</span>
+      <span class="bs" id="homeCount">読み込み中…</span>
+    </button>
+    <button class="bigbtn add" id="goAdd" type="button">
+      <span class="bt">＋ 未付与を登録する</span>
+      <span class="bs">付与できなかった coin・チケット・+POINT</span>
+    </button>
+  </div>
+</section>
+
+<main>
+  <div class="wrap" id="list">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </div>
+</main>
+
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
+</div>
+<div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastUndo" type="button" hidden>取り消す</button></div>
+<div class="busy" id="busy" hidden></div>
+
+<script>
+// 記録の読み書き先（Google 側の窓口の URL）
+window.API_URL = "https://script.google.com/macros/s/AKfycbxmLf0ep465r9AcBI7JuVUCSiwfFHDWIdNcWLGYKo9jBB0qB1jBRTD7XhkAb71JK5PIow/exec";
+// iPhone のホーム画面用アイコン（icon.svg から PNG を作る）
+(function () { try { var img = new Image(); img.onload = function () { var c = document.createElement("canvas"); c.width = c.height = 180; c.getContext("2d").drawImage(img, 0, 0, 180, 180); document.getElementById("appleIcon").href = c.toDataURL("image/png"); }; img.src = "icon.svg"; } catch (e) {} })();
+if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); }); }
+</script>
+<script src="app.js?v=20261121b"></script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>未付与リスト</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" id="appleIcon" href="icon.svg">
+<meta name="theme-color" content="#f2f3f0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="未付与リスト">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="style.css?v=20261121a">
 </head>
 <body data-view="home">
